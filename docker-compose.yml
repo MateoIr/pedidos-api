@@ -1,0 +1,37 @@
+# Levanta MySQL y la API para probarla en local:  docker compose up --build
+# Los valores por defecto son solo para desarrollo local. Para cambiarlos, copiá .env.example a .env.
+services:
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: pedidos
+      MYSQL_USER: pedidos
+      MYSQL_PASSWORD: ${DB_PASSWORD:-pedidos}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  api:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:mysql://db:3306/pedidos
+      DB_USER: pedidos
+      DB_PASSWORD: ${DB_PASSWORD:-pedidos}
+      JWT_SECRET: ${JWT_SECRET:-secreto-local-de-desarrollo-cambialo-32b}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@pedidos.local}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin12345}
+    ports:
+      - "8080:8080"
+
+volumes:
+  mysql-data:
