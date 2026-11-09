@@ -27,6 +27,11 @@ public class GlobalExceptionHandler {
         return build(HttpStatus.UNAUTHORIZED, e.getMessage(), List.of());
     }
 
+    @ExceptionHandler(IaNoDisponibleException.class)
+    public ResponseEntity<ErrorDto> handleIaNoDisponible(IaNoDisponibleException e) {
+        return build(HttpStatus.SERVICE_UNAVAILABLE, e.getMessage(), List.of());
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorDto> handleValidation(MethodArgumentNotValidException e) {
         List<String> detalles = e.getBindingResult().getFieldErrors().stream()

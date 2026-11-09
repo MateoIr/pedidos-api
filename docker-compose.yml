@@ -30,6 +30,8 @@ services:
       JWT_SECRET: ${JWT_SECRET:-secreto-local-de-desarrollo-cambialo-32b}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@pedidos.local}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin12345}
+      IA_HABILITADA: ${IA_HABILITADA:-false}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     ports:
       - "8080:8080"
 

@@ -4,7 +4,7 @@
 
 API REST de pedidos y repartos para una distribuidora, hecha con **Java 21 y Spring Boot 4**. Resuelve un problema real del reparto: qué hacer con los productos que vuelven en la camioneta cuando un cliente recibe solo parte de su pedido o lo rechaza.
 
-> 🇬🇧 **English summary:** REST API for a distributor's orders and deliveries (Java 21, Spring Boot 4, Spring Security + JWT, JPA, MySQL, Flyway, MapStruct, JUnit 5 + Mockito, Docker, GitHub Actions). Its core feature reassigns leftover products from partial or cancelled deliveries to other customers on the same route, applying a pricing rule: customers who had already ordered the product keep their original price; new items are charged at the current price.
+> 🇬🇧 **English summary:** REST API for a distributor's orders and deliveries (Java 21, Spring Boot 4, Spring Security + JWT, JPA, MySQL, Flyway, MapStruct, JUnit 5 + Mockito, Docker, GitHub Actions, Claude API). Its core feature reassigns leftover products from partial or cancelled deliveries to other customers on the same route, applying a pricing rule: customers who had already ordered the product keep their original price; new items are charged at the current price. An optional endpoint asks Claude (structured output) which leftovers to offer to which customers, and the backend validates every suggestion before showing it.
 
 ## El problema
 
@@ -34,6 +34,19 @@ Ejemplo (es el test de integración [`FlujoRepartoIntegrationTest`](src/test/jav
 | 5 | En la camioneta queda 1 gaseosa. |
 
 La lógica está en [`EntregaServiceImpl`](src/main/java/com/mateoiriso/pedidos/service/Impl/EntregaServiceImpl.java).
+
+## Sugerencias con IA (Claude)
+
+`GET /api/v1/repartos/{id}/sugerencias-sobrantes` le pide a **Claude** (SDK oficial de Anthropic para Java, modelo `claude-opus-5-5`) qué sobrante conviene ofrecerle a qué cliente del reparto. La IA **sugiere**, pero no decide:
+
+- **Salida estructurada:** Claude responde un JSON con un formato fijo (`RespuestaSugerenciasIa`), generado a partir de records de Java. No hay que parsear texto libre.
+- **El sistema valida cada sugerencia** antes de mostrarla: el pedido tiene que estar pendiente en ese reparto, el producto tiene que haber sobrado y la cantidad no puede superar lo que queda (sumando todas las sugerencias). Lo que no pasa la validación vuelve en `descartadas`, con el motivo.
+- **El precio nunca lo pone la IA:** se calcula con la misma regla de sobrantes (precio original si el cliente ya tenía el producto, precio vigente si no).
+- **Privacidad:** al modelo solo le llegan IDs de pedido y productos. Nombres, emails y teléfonos de los clientes no salen del sistema.
+- **No aplica cambios:** el repartidor revisa las sugerencias y, si le sirven, las aplica con `POST /pedidos/{id}/sobrantes`.
+- **Es opcional:** se activa con `IA_HABILITADA=true` y `ANTHROPIC_API_KEY`. Si está apagada o la API falla, ese endpoint responde 503 y el resto de la API sigue funcionando. Si no hay sobrantes o pedidos pendientes, no se llama al modelo.
+
+La lógica está en [`SugerenciaServiceImpl`](src/main/java/com/mateoiriso/pedidos/service/Impl/SugerenciaServiceImpl.java) y la llamada a Claude en [`ClaudeSugerenciaClient`](src/main/java/com/mateoiriso/pedidos/service/ia/ClaudeSugerenciaClient.java), detrás de una interfaz para poder testear con un mock.
 
 ## Modelo de datos
 
@@ -94,6 +107,7 @@ erDiagram
 | POST | `/api/v1/pedidos/{id}/cancelacion` | Repartidor del pedido o ADMIN |
 | POST | `/api/v1/pedidos/{id}/sobrantes` | Repartidor del pedido o ADMIN |
 | GET | `/api/v1/repartos/{id}/sobrantes` | Repartidor del reparto o ADMIN |
+| GET | `/api/v1/repartos/{id}/sugerencias-sobrantes` | Repartidor del reparto o ADMIN (IA, opcional) |
 
 La documentación interactiva está en **`/swagger-ui.html`** (botón *Authorize* para pegar el token).
 
@@ -115,13 +129,14 @@ La API queda en `http://localhost:8080` y Swagger en `http://localhost:8080/swag
 
 - **Unitarios con JUnit 5 y Mockito** para la regla de sobrantes: entregas completas y parciales, cancelaciones, precio original vs. precio vigente, sobrantes insuficientes.
 - **De integración** contra H2 con las mismas migraciones de Flyway: el día de reparto completo de la tabla de arriba.
+- **De la integración con IA** (Claude mockeado): descarta pedidos o productos inventados, respeta el stock, calcula el precio con la regla y no envía datos personales al modelo.
 - **De seguridad con MockMvc**: 401 sin token, 403 por rol y por dueño del recurso, validaciones con 400.
 
 GitHub Actions corre los tests y construye la imagen Docker en cada push.
 
 ## Stack
 
-Java 21 · Spring Boot 4 · Spring Web MVC · Spring Security (JWT) · Spring Data JPA / Hibernate · MySQL · Flyway · MapStruct · Lombok · Bean Validation · springdoc-openapi · JUnit 5 · Mockito · H2 · Docker · GitHub Actions
+Java 21 · Spring Boot 4 · Claude API (Anthropic Java SDK) · Spring Web MVC · Spring Security (JWT) · Spring Data JPA / Hibernate · MySQL · Flyway · MapStruct · Lombok · Bean Validation · springdoc-openapi · JUnit 5 · Mockito · H2 · Docker · GitHub Actions
 
 ---
 

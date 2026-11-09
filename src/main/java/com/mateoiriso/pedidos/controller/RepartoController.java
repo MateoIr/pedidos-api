@@ -1,11 +1,13 @@
 package com.mateoiriso.pedidos.controller;
 
 import com.mateoiriso.pedidos.model.dto.entrega.SobranteDto;
+import com.mateoiriso.pedidos.model.dto.entrega.SugerenciasDto;
 import com.mateoiriso.pedidos.model.dto.pedido.PedidoDto;
 import com.mateoiriso.pedidos.model.dto.reparto.RepartoDto;
 import com.mateoiriso.pedidos.model.dto.reparto.RequestRepartoDto;
 import com.mateoiriso.pedidos.service.IEntregaService;
 import com.mateoiriso.pedidos.service.IRepartoService;
+import com.mateoiriso.pedidos.service.ISugerenciaService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -25,6 +27,7 @@ public class RepartoController {
 
     private final IRepartoService repartoService;
     private final IEntregaService entregaService;
+    private final ISugerenciaService sugerenciaService;
 
     @PreAuthorize("hasRole('ADMIN')")
     @PostMapping
@@ -49,6 +52,13 @@ public class RepartoController {
     @GetMapping("{id}/pedidos")
     ResponseEntity<List<PedidoDto>> pedidos(@PathVariable Integer id) {
         return ResponseEntity.ok(repartoService.pedidosDelReparto(id));
+    }
+
+    @Operation(summary = "Sugerencias con IA (Claude) de qué sobrante ofrecer a qué pedido. No aplica cambios.")
+    @PreAuthorize("hasRole('ADMIN') or @seguridad.esRepartidorDelReparto(#id, authentication)")
+    @GetMapping("{id}/sugerencias-sobrantes")
+    ResponseEntity<SugerenciasDto> sugerencias(@PathVariable Integer id) {
+        return ResponseEntity.ok(sugerenciaService.sugerirSobrantes(id));
     }
 
     @Operation(summary = "Lo que queda en la camioneta para ofrecer a otros clientes")
